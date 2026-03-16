@@ -6,33 +6,20 @@ from typing import Self
 import gymnasium as gym
 import numpy as np
 
-# Approximate observation bounds
-# Dims 0-5 are continuous; dims 6-7 are binary leg-contact flags.
-_OBS_BOUNDS = np.array(
-    [
-        [-1.5, 1.5],
-        [-0.5, 1.5],
-        [-5.0, 5.0],
-        [-5.0, 5.0],
-        [-3.14, 3.14],
-        [-5.0, 5.0],
-    ]
-)
-
-_N_ACTIONS = 4
-
+# Definimos la constante global para que el método 'load' no falle al reconstruir la tabla
+_N_ACTIONS = 4 
 
 class QLearningAgent:
     def __init__(
         self,
         env_id: str,
         *,
-        n_bins: int = 10,
-        lr: float = 0.1,
-        gamma: float = 0.99,
+        n_bins: int = 4,           # Hiperparámetro original
+        lr: float = 0.015,            # Hiperparámetro original
+        gamma: float = 0.99,        # Hiperparámetro original
         epsilon_start: float = 1.0,
         epsilon_end: float = 0.01,
-        epsilon_decay: float = 0.9995,
+        epsilon_decay: float = 0.9999, # Hiperparámetro original
     ) -> None:
         self.env_id = env_id
         self.n_bins = n_bins
@@ -43,9 +30,27 @@ class QLearningAgent:
         self.epsilon_decay = epsilon_decay
         self.training_episodes = 0
 
+        # Ajuste dinámico de límites según el entorno (LunarLander-v3)
+        env = gym.make(env_id)
+        obs_low = env.observation_space.low
+        obs_high = env.observation_space.high
+        
+        # Forzamos los límites de la Luna para evitar que se desborde el índice de los bins
+        # x, y, vx, vy, angle, angular_v
+        obs_low[:6] = [-2.5, -2.5, -10.0, -10.0, -6.28, -10.0]
+        obs_high[:6] = [2.5, 2.5, 10.0, 10.0, 6.28, 10.0]
+        
+        self.n_obs = len(obs_low)
+        env.close()
+        
+        # Creación de bins para cada dimensión de observación 
         self._bins = [
-            np.linspace(lo, hi, n_bins + 1)[1:-1] for lo, hi in _OBS_BOUNDS
+            np.linspace(obs_low[i], obs_high[i], n_bins + 1)[1:-1]
+            for i in range(self.n_obs)
         ]
+        
+        self.n_actions = _N_ACTIONS
+        # Inicialización de la tabla Q con el tamaño correcto para la nave (4 acciones) 
         self.q_table: dict[tuple, np.ndarray] = defaultdict(
             lambda: np.zeros(_N_ACTIONS)
         )
@@ -55,15 +60,21 @@ class QLearningAgent:
     # ------------------------------------------------------------------
 
     def discretize(self, obs: np.ndarray) -> tuple:
-        continuous = np.clip(obs[:6], _OBS_BOUNDS[:, 0], _OBS_BOUNDS[:, 1])
-        indices = [int(np.digitize(continuous[i], self._bins[i])) for i in range(6)]
-        indices.append(int(obs[6]))
-        indices.append(int(obs[7]))
-        return tuple(indices)
+        """Convert continuous observation to discrete state."""
+        # Definimos los límites para el recorte (clipping) basados en los bins creados
+        low_clip = [self._bins[i][0] for i in range(self.n_obs)]
+        high_clip = [self._bins[i][-1] for i in range(self.n_obs)]
+        
+        # Recorte de valores para que siempre caigan dentro de los bins definidos
+        clipped = np.clip(obs[:self.n_obs], low_clip, high_clip)
+        
+        # Conversión a índices discretos [cite: 81]
+        indices = tuple(int(np.digitize(clipped[i], self._bins[i])) for i in range(self.n_obs))
+        return indices
 
     def select_action(self, state: tuple, *, deterministic: bool = False) -> int:
         if not deterministic and np.random.random() < self.epsilon:
-            return np.random.randint(_N_ACTIONS)
+            return np.random.randint(self.n_actions)
         return int(np.argmax(self.q_table[state]))
 
     def predict(
@@ -91,6 +102,12 @@ class QLearningAgent:
 
     def train(self, total_episodes: int = 10_000, log_interval: int = 100) -> list[float]:
         env = gym.make(self.env_id)
+        
+        # Asegurar que n_actions esté sincronizado con el entorno
+        if self.n_actions is None:
+            self.n_actions = int(env.action_space.n)
+            self.q_table = defaultdict(lambda: np.zeros(self.n_actions))
+        
         rewards_history: list[float] = []
 
         for episode in range(1, total_episodes + 1):
@@ -99,21 +116,16 @@ class QLearningAgent:
             total_reward = 0.0
             done = False
 
-            # Environment loop
             while not done:
-                # Select action
                 action = self.select_action(state)
-                # Take action
                 next_obs, reward, terminated, truncated, _ = env.step(action)
-                # Update state
                 next_state = self.discretize(next_obs)
-                # Update Q-table
+                done = truncated or terminated
                 self._update(state, action, reward, next_state, done)
-                # Update state
                 state = next_state
-                # Update total reward
                 total_reward += reward
 
+            # Decaimiento de epsilon original 
             self.epsilon = max(self.epsilon_end, self.epsilon * self.epsilon_decay)
             self.training_episodes += 1
             rewards_history.append(total_reward)
@@ -154,7 +166,7 @@ class QLearningAgent:
     @classmethod
     def load(cls, path: Path) -> Self:
         with open(path, "rb") as f:
-            data = pickle.load(f)  # noqa: S301
+            data = pickle.load(f)
 
         agent = cls(
             env_id=data["env_id"],
@@ -165,6 +177,7 @@ class QLearningAgent:
             epsilon_end=data["epsilon_end"],
             epsilon_decay=data["epsilon_decay"],
         )
+        # Uso de la constante corregida para reconstruir entradas faltantes
         agent.q_table = defaultdict(
             lambda: np.zeros(_N_ACTIONS), data["q_table"]
         )
@@ -174,8 +187,8 @@ class QLearningAgent:
     def info(self) -> str:
         return (
             f"Q-Learning agent for {self.env_id}\n"
-            f"  Episodes trained : {self.training_episodes}\n"
-            f"  States visited   : {len(self.q_table)}\n"
-            f"  Epsilon          : {self.epsilon:.4f}\n"
-            f"  LR / Gamma       : {self.lr} / {self.gamma}"
+            f"   Episodes trained : {self.training_episodes}\n"
+            f"   States visited   : {len(self.q_table)}\n"
+            f"   Epsilon          : {self.epsilon:.4f}\n"
+            f"   LR / Gamma       : {self.lr} / {self.gamma}"
         )

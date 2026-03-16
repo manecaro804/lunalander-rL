@@ -5,6 +5,7 @@ from pathlib import Path
 import gymnasium as gym
 import numpy as np
 
+# CAMBIO 1: Cambiar el ID del entorno por defecto a la Luna
 ENV_ID = "LunarLander-v3"
 SAVE_DIR = Path("saves")
 AGENT_CHOICES = ("qlearning", "dqn")
@@ -12,6 +13,7 @@ VERSION = version("rl_games")
 
 
 def _save_path(agent_type: str) -> Path:
+    """Genera la ruta de guardado usando el sufijo de la Luna."""
     if agent_type == "qlearning":
         return SAVE_DIR / "qlearning_lunar.pkl"
     return SAVE_DIR / "dqn_lunar.pt"
@@ -84,7 +86,7 @@ def cmd_init(args: argparse.Namespace) -> None:
         agent = DQNAgent(ENV_ID)
 
     agent.save(path)
-    print(f"Initialized {args.agent} agent.")
+    print(f"Initialized {args.agent} agent for {ENV_ID}.")
 
 
 def cmd_train(args: argparse.Namespace) -> None:
@@ -173,7 +175,7 @@ def cmd_sim(args: argparse.Namespace) -> None:
         print(f"== Episode {ep}/{args.episodes} ==\n")
         print(f"  initial state: {np.array2string(obs, precision=3)}\n")
 
-        limit = args.steps  # None means show all
+        limit = args.steps
 
         while not done:
             step += 1
@@ -196,13 +198,15 @@ def cmd_sim(args: argparse.Namespace) -> None:
         if limit is not None and step > limit:
             print(f"  ... ({step - limit} more steps) ...")
 
-        outcome = "LANDED" if not terminated else "CRASHED" if total_reward < 0 else "LANDED"
-        if truncated:
-            outcome = "TRUNCATED (time limit)"
-        elif terminated and total_reward < 0:
+        # Lógica de resultado basada en el sistema de recompensas de LunarLander
+        if not terminated and not truncated:
+            outcome = "IN PROGRESS"
+        elif total_reward >= 100:
+            outcome = "SUCCESSFUL LANDING"
+        elif total_reward <= -100:
             outcome = "CRASHED"
         else:
-            outcome = "LANDED"
+            outcome = "LANDED (Roughly)"
 
         print(f"\n  Result: {outcome} | Steps: {step} | Total reward: {total_reward:+.2f}\n")
         all_rewards.append(total_reward)

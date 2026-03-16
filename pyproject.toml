@@ -8,13 +8,14 @@ version = "0.1.0"
 description = "RL Games: a collection of reinforcement learning games."
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.11 , <3.12"
+requires-python = ">=3.11"
 
 dependencies = [
-    "gymnasium[box2d]>=1.2.3",
-    "numpy>=2.4.2",
-    "ruff>=0.15.5",
-    "torch>=2.10.0",
+    "gymnasium",
+    "numpy",
+    "torch",
+    "optuna",
+    "matplotlib",
 ]
 
 [project.scripts]
