@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from src.rl_games.agents.dqn import DQNAgent
 from src.rl_games.agents.qlearning import QLearningAgent
 
-ENV_ID = "LunaLander-v3"  # Using LunarLander for easier setup
+ENV_ID = "LunarLander-v3"  # Using LunarLander for easier setup
 RESULTS_DIR = Path("quick_tests")
 RESULTS_DIR.mkdir(exist_ok=True)
 
