@@ -14,12 +14,12 @@ class QLearningAgent:
         self,
         env_id: str,
         *,
-        n_bins: int = 4,           # Hiperparámetro original
-        lr: float = 0.015,            # Hiperparámetro original
+        n_bins: int = 12,           # Hiperparámetro original
+        lr: float = 0.2,            # Hiperparámetro original
         gamma: float = 0.99,        # Hiperparámetro original
         epsilon_start: float = 1.0,
-        epsilon_end: float = 0.01,
-        epsilon_decay: float = 0.9999, # Hiperparámetro original
+        epsilon_end: float = 0.1,
+        epsilon_decay: float = 0.999, # Hiperparámetro original
     ) -> None:
         self.env_id = env_id
         self.n_bins = n_bins
@@ -61,15 +61,12 @@ class QLearningAgent:
 
     def discretize(self, obs: np.ndarray) -> tuple:
         """Convert continuous observation to discrete state."""
-        # Definimos los límites para el recorte (clipping) basados en los bins creados
-        low_clip = [self._bins[i][0] for i in range(self.n_obs)]
-        high_clip = [self._bins[i][-1] for i in range(self.n_obs)]
-        
-        # Recorte de valores para que siempre caigan dentro de los bins definidos
-        clipped = np.clip(obs[:self.n_obs], low_clip, high_clip)
-        
-        # Conversión a índices discretos [cite: 81]
-        indices = tuple(int(np.digitize(clipped[i], self._bins[i])) for i in range(self.n_obs))
+
+        indices = tuple(
+            int(np.digitize(obs[i], self._bins[i]))
+            for i in range(self.n_obs)
+        )
+
         return indices
 
     def select_action(self, state: tuple, *, deterministic: bool = False) -> int:
@@ -100,7 +97,7 @@ class QLearningAgent:
         td_error = td_target - self.q_table[state][action]
         self.q_table[state][action] += self.lr * td_error
 
-    def train(self, total_episodes: int = 10_000, log_interval: int = 100) -> list[float]:
+    def train(self, total_episodes: int = 20_000, log_interval: int = 100) -> list[float]:
         env = gym.make(self.env_id)
         
         # Asegurar que n_actions esté sincronizado con el entorno
