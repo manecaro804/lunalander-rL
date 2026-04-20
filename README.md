@@ -1,206 +1,226 @@
-![CI](https://github.com/emiliomunozai/rl_games/actions/workflows/ci.yml/badge.svg?branch=main)
+# 🟡 Pacman DQN Agent (Reinforcement Learning)
 
-A hands-on repo for understanding how Reinforcement Learning works.
-Train, inspect, and visualise RL agents on [LunarLander-v3](https://gymnasium.farama.org/environments/box2d/lunar_lander/) (or any other Gymnasium environment).
+Proyecto práctico para entender cómo funciona **Deep Reinforcement Learning (DQN)** aplicándolo al entorno de **Pacman (ALE/Pacman-v5)** usando Gymnasium.
 
-## LunarLander-v3 environment
+Este proyecto es una extensión del trabajo realizado con **LunarLander-v3**, adaptando el enfoque a un entorno mucho más complejo basado en imágenes.
 
-The default environment is [LunarLander-v3](https://gymnasium.farama.org/environments/box2d/lunar_lander/).
-The lander starts at the top of the screen and the goal is to land it softly on the landing pad (between the two flags) using thrust and rotation.
+---
 
-### State (observation) — 8 continuous values
+# 🎮 Entorno: Pacman (ALE/Pacman-v5)
 
-| Index | Variable | Description | Range |
-|:---:|---|---|---|
-| 0 | x | Horizontal position | -2.5 to 2.5 |
-| 1 | y | Vertical position | -2.5 to 2.5 |
-| 2 | vx | Horizontal velocity | -10 to 10 |
-| 3 | vy | Vertical velocity | -10 to 10 |
-| 4 | angle | Angle of the lander (radians) | -6.28 to 6.28 |
-| 5 | angular velocity | Rotation speed | -10 to 10 |
-| 6 | left leg contact | 1 if left leg touches ground, 0 otherwise | 0 or 1 |
-| 7 | right leg contact | 1 if right leg touches ground, 0 otherwise | 0 or 1 |
+Se utiliza el entorno de Atari a través de Gymnasium:
 
-### Actions — 4 discrete
+👉 https://ale.farama.org/environments/pacman/
 
-| Value | Action |
-|:---:|---|
-| 0 | Do nothing |
-| 1 | Fire left orientation engine (rotate right) |
-| 2 | Fire main engine (thrust up) |
-| 3 | Fire right orientation engine (rotate left) |
+Pacman debe recorrer un laberinto:
 
-### Rewards
+- Comer todas las bolitas (pellets)
+- Evitar los fantasmas
+- Usar power pellets para poder comerse fantasmas
 
-| Event | Reward |
-|---|---|
-| Moving towards the landing pad | positive, proportional to distance reduction |
-| Moving away from the landing pad | negative |
-| Crash | **-100** |
-| Successful landing (come to rest) | **+100** |
-| Each leg ground contact | **+10** |
-| Firing main engine (per frame) | **-0.3** |
-| Firing side engine (per frame) | **-0.03** |
+---
 
-An episode is considered **solved** at **+200** points average over 100 episodes.
-The episode ends when the lander crashes, lands, or after **1000 time steps** (truncation).
+## 🧠 Estado (State)
 
-> Run `rlgames inspect` to see live state/action/reward values from the environment.
+A diferencia de LunarLander (vector de 8 valores), aquí el estado es una **imagen**.
 
-## Quick concepts — Q-Learning methods
+Después del preprocesamiento:
+# 🟡 Pacman DQN Agent (Reinforcement Learning)
 
-### The core idea
+Proyecto práctico para entender cómo funciona **Deep Reinforcement Learning (DQN)** aplicándolo al entorno de **Pacman (ALE/Pacman-v5)** usando Gymnasium.
 
-An RL agent interacts with an **environment** in discrete time steps.
-At each step it observes a **state** $s$, picks an **action** $a$, receives a **reward** $r$, and transitions to a new state $s'$.
-The goal is to learn a **policy** $\pi(s) \to a$ that maximises the total (discounted) reward over time.
+Este proyecto es una extensión del trabajo realizado con **LunarLander-v3**, adaptando el enfoque a un entorno mucho más complejo basado en imágenes.
 
-### Q-values and the Bellman equation
+---
 
-A **Q-value** $Q(s, a)$ estimates the expected cumulative reward of taking action $a$ in state $s$ and then following the optimal policy.
-The optimal Q-values satisfy the **Bellman optimality equation**:
+# 🎮 Entorno: Pacman (ALE/Pacman-v5)
 
-$$
-Q^*(s, a) = r + \gamma \max_{a'} Q^*(s', a')
-$$
+Se utiliza el entorno de Atari a través de Gymnasium:
 
-where $\gamma \in [0, 1]$ is the **discount factor** (how much the agent cares about future vs. immediate rewards).
+👉 https://ale.farama.org/environments/pacman/
 
-### Tabular Q-Learning
+Pacman debe recorrer un laberinto:
 
-When the state and action spaces are small (or can be discretized), we store Q-values in a table and update them after every transition:
+- Comer todas las bolitas (pellets)
+- Evitar los fantasmas
+- Usar power pellets para poder comerse fantasmas
 
-$$
-Q(s, a) \leftarrow Q(s, a) + \alpha \bigl[ r + \gamma \max_{a'} Q(s', a') - Q(s, a) \bigr]
-$$
+---
 
-- $\alpha$ (learning rate) — how fast we update.
-- **$\varepsilon$-greedy** exploration — with probability $\varepsilon$ pick a random action, otherwise pick $\arg\max_a Q(s, a)$. $\varepsilon$ decays over time so the agent gradually shifts from exploring to exploiting.
+## 🧠 Estado (State)
 
-> See `src/rl_games/agents/qlearning.py` for a complete tabular implementation.
+A diferencia de LunarLander (vector de 8 valores), aquí el estado es una **imagen**.
 
-### Deep Q-Network (DQN)
+Después del preprocesamiento:
+(84,84,4)
 
-When the state space is continuous (like the 8-dimensional LunarLander observation), a table no longer works.
-**DQN** replaces the table with a neural network $Q_\theta(s, a)$ and introduces two key tricks:
+Esto representa:
 
-| Trick | Why |
-|---|---|
-| **Experience replay** | Store transitions in a buffer, sample random mini-batches — breaks correlation between consecutive samples and reuses data. |
-| **Target network** | Keep a frozen copy of the Q-network and update it periodically — stabilises the moving Bellman target. |
+- 84x84 → imagen en escala de grises
+- 4 → últimos 4 frames (Frame Stacking)
 
-Training step (one gradient update):
+👉 Esto permite al agente inferir movimiento (velocidad y dirección).
 
-1. Sample a mini-batch $\{(s, a, r, s', \text{done})\}$ from the replay buffer.
-2. Compute targets: $y = r + \gamma \cdot \max_{a'} Q_{\text{target}}(s', a') \cdot (1 - \text{done})$.
-3. Minimise MSE between $Q_\theta(s, a)$ and $y$.
+---
 
-> See `src/rl_games/agents/dqn.py` for a from-scratch PyTorch implementation where every component (network, replay buffer, training loop) is visible and editable.
+## 🎮 Acciones (Actions)
 
-### Exploration vs. Exploitation
+Las acciones son discretas y dependen del entorno Atari:
 
-This is the fundamental trade-off in RL.
-**Explore** (random actions) to discover new, potentially better strategies.
-**Exploit** (greedy actions) to collect the highest reward based on current knowledge.
-The $\varepsilon$-greedy schedule balances both: start with high $\varepsilon$ (mostly exploring) and anneal towards low $\varepsilon$ (mostly exploiting).
+| Acción | Descripción |
+|------|-------------|
+| 0 | No hacer nada |
+| 1 | Arriba |
+| 2 | Derecha |
+| 3 | Izquierda |
+| 4 | Abajo |
 
-## Agents
+---
 
-| Agent | Algorithm | State representation | File |
-|---|---|---|---|
-| `qlearning` | Tabular Q-Learning | Discretized (8 bins per dim) | `agents/qlearning.py` |
-| `dqn` | DQN from scratch (PyTorch) | Raw continuous | `agents/dqn.py` |
+## 🎯 Recompensas (Rewards)
 
-## Setup
+Las recompensas son definidas por el entorno:
 
-```bash
-uv sync
-source .venv/bin/activate   # Linux / macOS
-.venv\Scripts\activate      # Windows
-```
+| Evento | Recompensa |
+|------|-----------|
+| Comer pellet | positiva |
+| Comer fantasma | alta positiva |
+| Perder vida | negativa |
+| Avanzar en el juego | pequeña positiva |
 
-## CLI usage
+⚠️ Importante:
 
-```bash
-rlgames <command> [agent] [options]
-```
+El agente **NO entiende el objetivo del juego**, solo aprende a maximizar la recompensa acumulada.
 
-### Version
+---
 
-```bash
-rlgames version
-```
+# 🤖 Algoritmo: Deep Q-Network (DQN)
 
-### List agents and their save status
+Debido a que el estado es una imagen, no se puede usar Q-table.
 
-```bash
-rlgames list
-```
+Se utiliza una red neuronal (CNN):
 
-### Inspect an environment
+Estado (imagen) → CNN → Q-values → Acción
 
-Show state/action spaces and sample a few random transitions to see what the agent observes.
 
-```bash
-rlgames inspect                          # LunarLander-v3 (default)
-rlgames inspect --steps 10              # more sample transitions
-```
+---
 
-### Initialize a new untrained agent
+## 🔑 Componentes clave
 
-```bash
-rlgames init qlearning
-rlgames init dqn
-```
+### 1. Experience Replay
 
-### Train an agent
+- Almacena experiencias pasadas
+- Entrena con muestras aleatorias
+- Reduce correlación entre datos
 
-Creates a save if none exists, resumes from an existing save otherwise.
+---
+
+### 2. Target Network
+
+- Copia congelada de la red principal
+- Se actualiza periódicamente
+- Estabiliza el entrenamiento
+
+---
+
+### 3. ε-greedy (Exploración vs Explotación)
+
+- ε alto → exploración
+- ε bajo → explotación
+
+---
+
+# 🏗️ Arquitectura del modelo (CNN)
+
+Entrada:
+(4,84,84)
+
+Salida: Q-values (número de acciones)
+
+La red aprende patrones visuales como:
+
+- posición de Pacman
+- fantasmas
+- paredes
+- pellets
+
+---
+
+# 🧪 Entrenamiento
+
+Ejecutar:
 
 ```bash
-rlgames train qlearning --episodes 20000
-rlgames train dqn       --episodes 500
-```
+python train_dqn.py
 
-### Load a save and display info
+salida ejemplo:
+Episode 30 | Reward: 40.00 | Epsilon: 0.10
 
-```bash
-rlgames load qlearning
-rlgames load dqn --eval
-```
+📊 RESULTADOS OBTENIDOS
+Recompensa promedio: ~20 – 40
+Máximo observado: ~90
+Comportamiento:
+Aprende a moverse
+Come pellets
+Evita parcialmente peligros
 
-### Simulate episodes (text output)
+⚠️ Limitaciones
+No completa el nivel
+No estrategia avanzada contra fantasmas
+Reward no está optimizado (sin reward shaping)
 
-Run a trained agent and see every action, reward, and outcome in the terminal.
+📁 ESTRUCTURA DEL PROYECTO
+Pacman_game/
+│
+├── dqn_agent.py        # Agente DQN
+├── dqn_cnn.py          # Red neuronal (CNN)
+├── wrappers.py         # Preprocesamiento (resize, grayscale, stack)
+├── train_dqn.py        # Entrenamiento
+├── test_pacman.py      # Prueba del entorno
+├── test_cnn.py         # Validación de la red
+│
+├── results/
+│   ├── dqn_pacman_base.png
+│   └── dqn_pacman_base.pth
+│
+└── README.md
 
-```bash
-rlgames sim qlearning --episodes 3              # full episodes
-rlgames sim dqn       --episodes 2 --verbose    # full episodes with state vectors
-rlgames sim dqn       --episodes 5 --steps 10   # only first 10 steps per episode
-```
+💾 GUARDADO DEL MODELO
 
-### Render episodes (graphical window)
+El modelo entrenado se guarda como:
 
-```bash
-rlgames render qlearning --episodes 3
-rlgames render dqn       --episodes 3
-```
+results/dqn_pacman_base.pth
 
-### Delete a saved agent
+🚀 TRABAJO FUTURO (mejoras)
 
-```bash
-rlgames delete qlearning
-rlgames delete dqn
-```
+Para mejorar el agente:
 
-## Project structure
+🔥 Reward Shaping
+Penalizar morir
+Recompensar supervivencia
+Incentivar pellets
 
-```
-src/rl_games/
-├── cli.py                  # CLI entry point
-└── agents/
-    ├── qlearning.py        # Tabular Q-Learning agent
-    └── dqn.py              # DQN agent from scratch (PyTorch)
-```
+🔥 Más entrenamiento
+500–1000 episodios
 
-Saves are written to `saves/` in the working directory.
+🔥 Mejoras en DQN
+Double DQN
+Prioritized Replay
+
+🔥 Estrategia avanzada
+Evitar fantasmas activamente
+Usar power pellets inteligentemente
+
+🧠 CONCLUSIÓN
+
+Este proyecto demuestra:
+
+Implementación completa de DQN desde cero
+Adaptación de RL a entornos visuales
+Diferencias entre entornos simples y complejos
+
+Aunque el agente aún no domina el juego, logra:
+
+✔ aprender comportamiento básico
+✔ mejorar con el tiempo
+✔ sentar base para mejoras avanzadas
