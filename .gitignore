@@ -209,3 +209,20 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# =========================
+# 🔥 RL / PACMAN PROJECT
+# =========================
+
+# Modelos entrenados (pesados)
+results/
+*.pth
+
+# Entorno específico del proyecto
+.venv310/
+
+# Logs o outputs si los creas
+*.log
+
+# Notebook de prueba con extensión de google colab para uso de GPU
+*.ipynb
